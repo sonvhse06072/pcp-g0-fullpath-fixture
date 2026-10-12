@@ -2,7 +2,7 @@ name: validation
 
 on:
   pull_request:
-    branches: [main, benchmark/fullpath]
+    branches: [main, benchmark/fullpath, benchmark/fullpath-v2]
 
 permissions:
   contents: read
@@ -28,10 +28,19 @@ jobs:
           --health-timeout=3s
           --health-retries=30
     steps:
-      - name: Checkout exact PR commit
+      - name: Checkout exact PR head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Verify exact PR head before running tests
+        env:
+          EXPECTED_PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          [[ "$EXPECTED_PR_HEAD" =~ ^[0-9a-f]{40}$ ]]
+          ACTUAL_HEAD="$(git rev-parse HEAD)"
+          test "$ACTUAL_HEAD" = "$EXPECTED_PR_HEAD"
+          echo "F2 fixture exact PR HEAD: $ACTUAL_HEAD"
       - name: PHP 8.4
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
