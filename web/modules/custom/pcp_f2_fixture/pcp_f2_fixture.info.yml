@@ -1,0 +1,5 @@
+name: 'PCP F2 Time Window Fixture'
+type: module
+description: 'Independent Drupal 11, data-free interval computation fixture.'
+package: Testing
+core_version_requirement: '^11'

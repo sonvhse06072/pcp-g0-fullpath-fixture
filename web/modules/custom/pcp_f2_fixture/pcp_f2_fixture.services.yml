@@ -1,0 +1,3 @@
+services:
+  pcp_f2_fixture.window_overlap:
+    class: Drupal\pcp_f2_fixture\WindowOverlapDetector

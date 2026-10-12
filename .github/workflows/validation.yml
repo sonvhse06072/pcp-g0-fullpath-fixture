@@ -1,0 +1,67 @@
+name: validation
+
+on:
+  pull_request:
+    branches: [main, benchmark/fullpath]
+
+permissions:
+  contents: read
+
+jobs:
+  fixture-validation:
+    name: fixture-validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      database:
+        image: mariadb:10.11
+        env:
+          MARIADB_DATABASE: db
+          MARIADB_USER: db
+          MARIADB_PASSWORD: db
+          MARIADB_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=30
+    steps:
+      - name: Checkout exact PR commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: PHP 8.4
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.4'
+          extensions: mbstring, gd, pdo_mysql, xml, dom, zip, curl
+          tools: composer:v2
+          coverage: none
+      - name: Verify dependency lock
+        run: composer validate --strict --no-interaction
+      - name: Install locked Drupal 11 dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Verify Drupal, PHPUnit and PHPCS
+        run: |
+          test -f web/core/tests/bootstrap.php
+          test -x vendor/bin/phpunit
+          test -x vendor/bin/phpcs
+          test -f composer.lock
+      - name: PHP syntax
+        run: |
+          find web/modules/custom/pcp_f2_fixture -type f -name '*.php' -print0 | xargs -0 -r -n1 php -l
+      - name: Drupal coding standard
+        run: vendor/bin/phpcs --standard=Drupal web/modules/custom/pcp_f2_fixture
+      - name: Drupal Unit tests
+        env:
+          SYMFONY_DEPRECATIONS_HELPER: disabled
+        run: vendor/bin/phpunit -c web/core/phpunit.xml.dist web/modules/custom/pcp_f2_fixture/tests/src/Unit
+      - name: Drupal Kernel tests
+        env:
+          SIMPLETEST_DB: mysql://db:db@127.0.0.1:3306/db
+          SIMPLETEST_BASE_URL: http://127.0.0.1
+          BROWSERTEST_OUTPUT_BASE_DIRECTORY: /tmp/pcp-f2-kernel
+          SYMFONY_DEPRECATIONS_HELPER: disabled
+        run: vendor/bin/phpunit -c web/core/phpunit.xml.dist web/modules/custom/pcp_f2_fixture/tests/src/Kernel
