@@ -1,0 +1,8 @@
+{
+  "name": "pcp-g1-codex-smoke",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "build": "node tools/g1-smoke-build.mjs"
+  }
+}
