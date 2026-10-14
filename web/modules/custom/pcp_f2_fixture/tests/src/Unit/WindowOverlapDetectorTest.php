@@ -41,10 +41,26 @@ final class WindowOverlapDetectorTest extends UnitTestCase {
   }
 
   /**
-   * Overnight handling is reserved for F2-T01 and not present in this seed.
+   * Windows that cross midnight overlap cyclically and symmetrically.
    */
-  public function testOvernightWindowsAreNotYetSupported(): void {
-    self::assertFalse((new WindowOverlapDetector())->intersects(1380, 60, 30, 90));
+  public function testOvernightWindowsOverlapCyclically(): void {
+    $detector = new WindowOverlapDetector();
+    self::assertTrue($detector->intersects(1380, 60, 30, 90));
+    self::assertTrue($detector->intersects(30, 90, 1380, 60));
+    self::assertFalse($detector->intersects(1380, 60, 1320, 1380));
+    self::assertFalse($detector->intersects(1380, 60, 60, 120));
+    self::assertTrue($detector->intersects(1380, 60, 0, 15));
+  }
+
+  /**
+   * Endpoint and range validation applies to overnight windows too.
+   */
+  public function testInvalidOvernightEndpointsFailClosed(): void {
+    $detector = new WindowOverlapDetector();
+    self::assertFalse($detector->intersects(60, 60, 30, 90));
+    self::assertFalse($detector->intersects(-1, 60, 30, 90));
+    self::assertFalse($detector->intersects(1380, 1441, 30, 90));
+    self::assertFalse($detector->intersects(1380, 60, 1440, 90));
   }
 
 }

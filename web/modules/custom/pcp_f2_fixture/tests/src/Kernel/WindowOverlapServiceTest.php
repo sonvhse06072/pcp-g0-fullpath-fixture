@@ -27,6 +27,11 @@ final class WindowOverlapServiceTest extends KernelTestBase {
     self::assertInstanceOf(WindowOverlapDetector::class, $service);
     self::assertTrue($service->intersects(540, 600, 550, 610));
     self::assertFalse($service->intersects(540, 600, 600, 660));
+    self::assertTrue($service->intersects(1380, 60, 30, 90));
+    self::assertTrue($service->intersects(30, 90, 1380, 60));
+    self::assertFalse($service->intersects(1380, 60, 1320, 1380));
+    self::assertFalse($service->intersects(1380, 60, 60, 120));
+    self::assertTrue($service->intersects(1380, 60, 0, 15));
   }
 
 }

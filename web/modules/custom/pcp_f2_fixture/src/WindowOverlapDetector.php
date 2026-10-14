@@ -3,32 +3,52 @@
 namespace Drupal\pcp_f2_fixture;
 
 /**
- * Detects collisions between same-day half-open time windows.
- *
- * Minute zero is midnight. In this immutable baseline, intervals crossing
- * midnight are intentionally unsupported; see proposed WorkOrder F2-T01.
+ * Detects collisions between half-open time windows on a 24-hour clock.
  */
 final class WindowOverlapDetector {
 
   /**
-   * Returns TRUE if two valid same-day windows share at least one minute.
+   * Returns TRUE if two valid windows share at least one minute.
    *
    * Touching endpoints do not overlap: [540, 600) and [600, 660) are separate.
-   * All intervals are in integer minutes within one day: 0 through 1440.
+   * Starts are in [0, 1439], and ends are in [0, 1440]. An end before its
+   * start wraps to the next day.
    */
   public function intersects(int $start, int $end, int $otherStart, int $otherEnd): bool {
-    if (!$this->isSameDayWindow($start, $end) || !$this->isSameDayWindow($otherStart, $otherEnd)) {
+    if (!$this->isValidWindow($start, $end) || !$this->isValidWindow($otherStart, $otherEnd)) {
       return FALSE;
     }
 
-    return $start < $otherEnd && $otherStart < $end;
+    foreach ($this->segments($start, $end) as [$segmentStart, $segmentEnd]) {
+      foreach ($this->segments($otherStart, $otherEnd) as [$otherSegmentStart, $otherSegmentEnd]) {
+        if ($segmentStart < $otherSegmentEnd && $otherSegmentStart < $segmentEnd) {
+          return TRUE;
+        }
+      }
+    }
+
+    return FALSE;
   }
 
   /**
-   * Only non-empty, strictly ordered same-day windows are initially valid.
+   * Checks the endpoint ranges and rejects empty windows.
    */
-  private function isSameDayWindow(int $start, int $end): bool {
-    return $start >= 0 && $start < 1440 && $end > $start && $end <= 1440;
+  private function isValidWindow(int $start, int $end): bool {
+    return $start >= 0 && $start < 1440 && $end >= 0 && $end <= 1440 && $end !== $start;
+  }
+
+  /**
+   * Splits a window into one or two linear half-open day segments.
+   *
+   * @return array<array{int, int}>
+   *   The non-empty segments within [0, 1440).
+   */
+  private function segments(int $start, int $end): array {
+    if ($end > $start) {
+      return [[$start, $end]];
+    }
+
+    return [[$start, 1440], [0, $end]];
   }
 
 }
