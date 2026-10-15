@@ -3,6 +3,14 @@ name: validation
 on:
   pull_request:
     branches: [main, benchmark/fullpath, benchmark/fullpath-v2]
+  # G1 immutable seed is intentionally NOT amended. Dispatch from main
+  # to test one exact direct/PCP coding HEAD against the original seed SHA.
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: 'Exact 40-hex G1-T01 direct/PCP candidate commit SHA'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -28,19 +36,37 @@ jobs:
           --health-timeout=3s
           --health-retries=30
     steps:
-      - name: Checkout exact PR head
+      - name: Checkout exact candidate or PR head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha }}
-      - name: Verify exact PR head before running tests
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || inputs.candidate_sha }}
+      - name: Verify exact supplied head before running tests
         env:
-          EXPECTED_PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || inputs.candidate_sha }}
         run: |
-          [[ "$EXPECTED_PR_HEAD" =~ ^[0-9a-f]{40}$ ]]
+          set -euo pipefail
+          [[ "$EXPECTED_HEAD" =~ ^[0-9a-f]{40}$ ]]
           ACTUAL_HEAD="$(git rev-parse HEAD)"
-          test "$ACTUAL_HEAD" = "$EXPECTED_PR_HEAD"
-          echo "F2 fixture exact PR HEAD: $ACTUAL_HEAD"
+          test "$ACTUAL_HEAD" = "$EXPECTED_HEAD"
+          echo "Fixture exact candidate/PR HEAD: $ACTUAL_HEAD"
+      - name: Verify G1-T01 direct/PCP pair is seed-based and two-file scoped
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          IMMUTABLE_G1_SEED: d4f4a56713e95f85ecc08c02bb43a5b5105a86a3
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse 'HEAD^')" = "$IMMUTABLE_G1_SEED"
+          test "$(git rev-parse --verify "$IMMUTABLE_G1_SEED^{commit}")" = "$IMMUTABLE_G1_SEED"
+          expected="$(printf '%s\n' \
+            'web/modules/custom/pcp_f2_fixture/src/WindowOverlapDetector.php' \
+            'web/modules/custom/pcp_f2_fixture/tests/src/Unit/WindowOverlapDetectorTest.php' \
+            | LC_ALL=C sort)"
+          actual="$(git diff --name-only "$IMMUTABLE_G1_SEED" HEAD | LC_ALL=C sort)"
+          test "$actual" = "$expected"
+          git diff --check "$IMMUTABLE_G1_SEED" HEAD
+          echo "G1-T01 immutable seed and exactly two changed PHP paths: PASS"
       - name: PHP 8.4
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
