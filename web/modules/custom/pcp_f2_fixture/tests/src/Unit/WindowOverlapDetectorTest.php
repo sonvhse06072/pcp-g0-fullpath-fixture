@@ -24,6 +24,47 @@ final class WindowOverlapDetectorTest extends UnitTestCase {
   }
 
   /**
+   * Counts shared minutes for partial overlap, containment, and equality.
+   */
+  public function testIntersectionMinutesForOverlappingWindows(): void {
+    $detector = new WindowOverlapDetector();
+    self::assertSame(30, $detector->intersectionMinutes(540, 600, 570, 660));
+    self::assertSame(30, $detector->intersectionMinutes(540, 660, 570, 600));
+    self::assertSame(120, $detector->intersectionMinutes(540, 660, 540, 660));
+  }
+
+  /**
+   * The shared-minute count is symmetric and respects day boundaries.
+   */
+  public function testIntersectionMinutesSymmetryAndDayBoundaries(): void {
+    $detector = new WindowOverlapDetector();
+    self::assertSame($detector->intersectionMinutes(570, 660, 540, 600), $detector->intersectionMinutes(540, 600, 570, 660));
+    self::assertSame(10, $detector->intersectionMinutes(0, 10, 0, 20));
+    self::assertSame(10, $detector->intersectionMinutes(1430, 1440, 1420, 1440));
+  }
+
+  /**
+   * Touching and disjoint windows share zero minutes.
+   */
+  public function testIntersectionMinutesForTouchingAndDisjointWindows(): void {
+    $detector = new WindowOverlapDetector();
+    self::assertSame(0, $detector->intersectionMinutes(540, 600, 600, 660));
+    self::assertSame(0, $detector->intersectionMinutes(540, 600, 610, 660));
+  }
+
+  /**
+   * Invalid, empty, out-of-day, and overnight windows share zero minutes.
+   */
+  public function testIntersectionMinutesForInvalidAndOvernightWindows(): void {
+    $detector = new WindowOverlapDetector();
+    self::assertSame(0, $detector->intersectionMinutes(540, 540, 530, 550));
+    self::assertSame(0, $detector->intersectionMinutes(-1, 10, 0, 10));
+    self::assertSame(0, $detector->intersectionMinutes(0, 1441, 0, 10));
+    self::assertSame(0, $detector->intersectionMinutes(1380, 60, 30, 90));
+    self::assertSame(0, $detector->intersectionMinutes(0, 10, 1380, 60));
+  }
+
+  /**
    * An adjacent endpoint is excluded by half-open boundaries.
    */
   public function testTouchingWindowsDoNotOverlap(): void {

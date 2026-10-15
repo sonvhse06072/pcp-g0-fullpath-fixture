@@ -25,6 +25,20 @@ final class WindowOverlapDetector {
   }
 
   /**
+   * Returns the number of minutes shared by two valid same-day windows.
+   *
+   * Touching endpoints share no minutes. Invalid, empty, out-of-day, and
+   * overnight windows return zero.
+   */
+  public function intersectionMinutes(int $start, int $end, int $otherStart, int $otherEnd): int {
+    if (!$this->isSameDayWindow($start, $end) || !$this->isSameDayWindow($otherStart, $otherEnd)) {
+      return 0;
+    }
+
+    return max(0, min($end, $otherEnd) - max($start, $otherStart));
+  }
+
+  /**
    * Only non-empty, strictly ordered same-day windows are initially valid.
    */
   private function isSameDayWindow(int $start, int $end): bool {
